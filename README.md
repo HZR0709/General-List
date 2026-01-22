@@ -44,7 +44,7 @@
 ## 🏗️ 项目结构
 
 ```
-Task_Manager/
+General_List/
 ├── include/
 │   └── list.h           # 链表头文件（接口定义）
 ├── src/
@@ -84,7 +84,7 @@ make rebuild
 
 ```bash
 # 运行主程序示例
-./task_manager
+./General_List
 
 # 运行完整的测试套件
 ./test_list
