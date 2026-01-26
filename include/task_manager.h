@@ -1,11 +1,13 @@
 #ifndef __TASK_MANAGER_H
 #define __TASK_MANAGER_H
 
+#include <pthread.h>
 #include "task.h"
 
 typedef struct {
     List* tasks;
     int   next_task_id;
+    pthread_mutex_t lock;
 } TaskManager;
 
 TaskManager* task_manager_create(void);

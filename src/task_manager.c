@@ -9,12 +9,15 @@ TaskManager* task_manager_create(void) {
     mgr->tasks = init_list(task_cmp, task_free);
     mgr->next_task_id = 0;
 
+    pthread_mutex_init(&mgr->lock, NULL);
+
     return mgr;
 }
 
 void task_manager_destroy(TaskManager* mgr) {
     if (!mgr) return;
 
+    pthread_mutex_destroy(&mgr->lock);
     destroy_list(mgr->tasks);
     free(mgr);
 }
@@ -22,8 +25,13 @@ void task_manager_destroy(TaskManager* mgr) {
 bool task_manager_add(TaskManager* mgr, const char* name, int priority) {
     if (!mgr || !name) return false;
 
+    pthread_mutex_lock(&mgr->lock);
+
     Task* task = malloc(sizeof(Task));
-    if (!task) return false;
+    if (!task) {
+        pthread_mutex_unlock(&mgr->lock);
+        return false;
+    }
 
     task->id = mgr->next_task_id++;
     strncpy(task->name, name, sizeof(task->name) - 1);
@@ -34,9 +42,11 @@ bool task_manager_add(TaskManager* mgr, const char* name, int priority) {
 
     if (!insert_at_tail(mgr->tasks, task)) {
         free(task);
+        pthread_mutex_destroy(&mgr->lock);
         return false;
     }
     
+    pthread_mutex_unlock(&mgr->lock);
     return true;
 }
 
@@ -49,16 +59,23 @@ bool task_manager_remove(TaskManager* mgr, int task_id) {
 bool task_manager_set_status(TaskManager* mgr, int task_id, TaskStatus status) {
     if (!mgr) return false;
 
+    pthread_mutex_lock(&mgr->lock);
+
     return update_by_value(
         mgr->tasks, 
         &task_id, 
         &status,
         task_update_status
     );
+
+    pthread_mutex_unlock(&mgr->lock);
+    return true;
 }
 
 size_t task_manager_start_all_pending(TaskManager* mgr) {
     if (!mgr) return 0;
+
+    pthread_mutex_lock(&mgr->lock);
 
     TaskStatus new_status = TASK_RUNNING;
     size_t count = update_if(
@@ -68,6 +85,7 @@ size_t task_manager_start_all_pending(TaskManager* mgr) {
         task_update_status
     );
 
+    pthread_mutex_unlock(&mgr->lock);
     return count;
 }
 
@@ -84,6 +102,8 @@ const char* task_status_to_string(TaskStatus status) {
 
 void task_manager_print(const TaskManager* mgr) {
     if (!mgr || !mgr->tasks) return;
+
+    pthread_mutex_lock(&mgr->lock);
 
     ListNode* cur = mgr->tasks->head;
     int count = 0;
@@ -109,4 +129,6 @@ void task_manager_print(const TaskManager* mgr) {
     } else {
         printf("\nTotal tasks: %d\n", count);
     }
+
+    pthread_mutex_unlock(&mgr->lock);
 }
