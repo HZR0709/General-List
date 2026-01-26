@@ -1,6 +1,7 @@
 #include "task_manager.h"
 #include <time.h>
 #include <string.h>
+#include <stdio.h>
 
 TaskManager* task_manager_create(void) {
     TaskManager* mgr = malloc(sizeof(TaskManager));
@@ -42,7 +43,7 @@ bool task_manager_add(TaskManager* mgr, const char* name, int priority) {
 
     if (!insert_at_tail(mgr->tasks, task)) {
         free(task);
-        pthread_mutex_destroy(&mgr->lock);
+        pthread_mutex_unlock(&mgr->lock);
         return false;
     }
     
@@ -53,7 +54,10 @@ bool task_manager_add(TaskManager* mgr, const char* name, int priority) {
 bool task_manager_remove(TaskManager* mgr, int task_id) {
     if (!mgr) return false;
 
-    return delete_by_value(mgr->tasks, &task_id);
+    pthread_mutex_lock(&mgr->lock);
+    bool ret = delete_by_value(mgr->tasks, &task_id);
+    pthread_mutex_unlock(&mgr->lock);
+    return ret;
 }
 
 bool task_manager_set_status(TaskManager* mgr, int task_id, TaskStatus status) {
@@ -61,7 +65,7 @@ bool task_manager_set_status(TaskManager* mgr, int task_id, TaskStatus status) {
 
     pthread_mutex_lock(&mgr->lock);
 
-    return update_by_value(
+    bool ret = update_by_value(
         mgr->tasks, 
         &task_id, 
         &status,
@@ -69,7 +73,7 @@ bool task_manager_set_status(TaskManager* mgr, int task_id, TaskStatus status) {
     );
 
     pthread_mutex_unlock(&mgr->lock);
-    return true;
+    return ret;
 }
 
 size_t task_manager_start_all_pending(TaskManager* mgr) {
